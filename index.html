@@ -380,8 +380,8 @@
               backgroundColor: settings.bgColor,
               fontEmbedCSS: fontEmbedCSS,
               style: {
-                transform: `scale(${scale})`,
-                transformOrigin: 'top left',
+                // transform: `scale(${scale})`,
+                // transformOrigin: 'top left',
                 // padding: '1.3rem 2rem',
                 backgroundColor: settings.bgColor,
                 width: `${totalWidth}px`,
@@ -782,10 +782,10 @@
             <main
               className={`${
                 isEditing ? 'pt-36 sm:pt-32' : 'pt-20'
-              } pb-24 px-3 max-w-3xl mx-auto w-full flex-grow`}
+              } pb-24 max-w-3xl mx-auto w-full flex-grow`}
             >
               <div
-                className="novel-content mt-8 break-words outline-none"
+                className="novel-content mt-6 break-words outline-none"
                 style={{
                   fontSize: `${settings.fontSize}px`,
                   lineHeight: settings.lineHeight,
