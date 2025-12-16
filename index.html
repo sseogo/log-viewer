@@ -29,19 +29,22 @@
 
     <!-- 4. 스타일 -->
     <style>
-      /* 기본 폰트 로드 (화면 표시용) */
+      /* Pretendard Variable */
       @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css');
+      /* Pretendard Static */
+      @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.css');
+      /* Noto Sans KR */
       @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@100..900&display=swap');
+      /* KoPub Batang */
       @import url('https://cdn.jsdelivr.net/npm/font-kopub@1.0/kopubbatang.min.css');
+      /* KoPub World Batang */
       @import url('https://cdn.jsdelivr.net/npm/font-kopub@1.0/kopubworldbatang.min.css');
 
-      /* 말줄임표용 특수 폰트 (로컬 폰트 사용 시도 후 웹폰트 폴백) */
+      /* 말줄임표(...) 교정용 폰트 */
       @font-face {
         font-family: 'EllipsisFix';
-        src: local('Apple SD Gothic Neo'), local('Malgun Gothic'),
-          local('Dotum'), local('sans-serif'),
-          url('https://cdn.jsdelivr.net/npm/font-kopub@1.0/fonts/KoPubBatangMedium.woff2')
-            format('woff2');
+        src: url('https://cdn.jsdelivr.net/npm/font-kopub@1.0/fonts/KoPubBatangMedium.woff2')
+          format('woff2');
         unicode-range: U+2026;
       }
 
@@ -133,36 +136,103 @@
         Redo,
       } from 'lucide-react';
 
-      // 폰트 파일 URL 맵핑 (직접 다운로드용)
-      const FONT_FILE_URLS = {
+      // 폰트 CSS 파일 URL 맵핑
+      const FONT_MAP = {
         'Pretendard Variable':
-          'https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-regular.woff2', // Static Regular 사용
+          'https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css',
         Pretendard:
-          'https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-regular.woff2',
+          'https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.css',
         'KoPub Batang':
-          'https://cdn.jsdelivr.net/npm/font-kopub@1.0/fonts/KoPubBatangMedium.woff2',
+          'https://cdn.jsdelivr.net/npm/font-kopub@1.0/kopubbatang.min.css',
         'KoPub World Batang':
-          'https://cdn.jsdelivr.net/npm/font-kopub@1.0/fonts/KoPubWorldBatangMedium.woff2',
+          'https://cdn.jsdelivr.net/npm/font-kopub@1.0/kopubworldbatang.min.css',
         'Noto Sans KR':
-          'https://fonts.gstatic.com/s/notosanskr/v27/PbykFmXiEBPT4ITbgNA5Cgm203Tq4JJWq209pU0DPdWu7yE4OA.woff2',
+          'https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@100..900&display=swap',
       };
 
-      // 폰트 캐시
+      // 폰트 데이터 캐시
       const fontCache = new Map();
 
-      // 폰트 파일을 Base64로 변환하는 함수
-      async function loadFontAsBase64(url) {
+      // [핵심] 폰트 임베딩 로직 (상대 경로 문제 해결 버전)
+      async function prepareFontEmbedCSS(activeFontKey) {
+        let mainFontKey = 'Pretendard Variable';
+        if (
+          activeFontKey.includes('Pretendard') &&
+          !activeFontKey.includes('Variable')
+        )
+          mainFontKey = 'Pretendard';
+        else if (activeFontKey.includes('KoPub Batang'))
+          mainFontKey = 'KoPub Batang';
+        else if (activeFontKey.includes('KoPub World Batang'))
+          mainFontKey = 'KoPub World Batang';
+        else if (activeFontKey.includes('Noto Sans'))
+          mainFontKey = 'Noto Sans KR';
+
+        if (fontCache.has(mainFontKey)) return fontCache.get(mainFontKey);
+
         try {
-          const response = await fetch(url);
-          const blob = await response.blob();
-          return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-          });
+          const cssUrl = FONT_MAP[mainFontKey];
+          if (!cssUrl) return null;
+
+          // 1. CSS 파일 가져오기
+          const cssRes = await fetch(cssUrl);
+          let cssText = await cssRes.text();
+
+          // 2. CSS 내의 폰트 파일 URL 추출 및 변환
+          const urlRegex = /url\(([^)]+)\)/g;
+          let match;
+          const replacements = [];
+
+          while ((match = urlRegex.exec(cssText)) !== null) {
+            let relativeUrl = match[1].replace(/['"]/g, '');
+            // [중요] 상대 경로를 절대 경로로 변환
+            const absoluteUrl = new URL(relativeUrl, cssUrl).href;
+            replacements.push({ original: match[0], url: absoluteUrl });
+          }
+
+          // 3. 폰트 파일 다운로드 및 Base64 변환
+          await Promise.all(
+            replacements.map(async (item) => {
+              try {
+                const fontRes = await fetch(item.url);
+                const fontBlob = await fontRes.blob();
+                return new Promise((resolve, reject) => {
+                  const reader = new FileReader();
+                  reader.onloadend = () => {
+                    cssText = cssText.replace(
+                      item.original,
+                      `url(${reader.result})`,
+                    );
+                    resolve();
+                  };
+                  reader.onerror = reject;
+                  reader.readAsDataURL(fontBlob);
+                });
+              } catch (e) {
+                console.warn('Font file fetch failed:', item.url, e);
+              }
+            }),
+          );
+
+          // 4. 말줄임표용 EllipsisFix 폰트 추가
+          try {
+            const ellipsisRes = await fetch(
+              'https://cdn.jsdelivr.net/npm/font-kopub@1.0/fonts/KoPubBatangMedium.woff2',
+            );
+            const ellipsisBlob = await ellipsisRes.blob();
+            const ellipsisBase64 = await new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result);
+              reader.readAsDataURL(ellipsisBlob);
+            });
+            const ellipsisCss = `@font-face { font-family: 'EllipsisFix'; src: url('${ellipsisBase64}') format('woff2'); unicode-range: U+2026; }`;
+            cssText += ellipsisCss;
+          } catch (e) {}
+
+          fontCache.set(mainFontKey, cssText);
+          return cssText;
         } catch (e) {
-          console.error('폰트 로딩 실패:', e);
+          console.error('CSS parsing failed', e);
           return null;
         }
       }
@@ -171,20 +241,17 @@
         const [isEditing, setIsEditing] = useState(true);
         const [showSettings, setShowSettings] = useState(false);
         const [resetConfirm, setResetConfirm] = useState(false);
-
         const [tableModal, setTableModal] = useState({
           show: false,
           rows: 3,
           cols: 3,
           widths: '33.3, 33.3, 33.3',
         });
-
         const [showClearModal, setShowClearModal] = useState(false);
-
         const editorRef = useRef(null);
         const savedRange = useRef(null);
 
-        const defaultText = `<p style="text-align: center;">제1장. 완전한 해결</p><p><br></p><p>이제 안드로이드에서도 Pretendard 폰트가 깨지지 않습니다.</p><p><br></p><blockquote>기존 방식의 문제점을 분석하여,<br>CSS 파일 파싱 대신 <strong>폰트 파일(.woff2)을 직접 다운로드</strong>하여<br>Base64로 변환하는 방식으로 변경했습니다.<br><br>이제 이미지 저장 시 <strong>Pretendard Regular</strong> 파일이<br>강제로 포함됩니다.</blockquote><p><br></p><p style="text-align: right;">- 최종 폰트 패치 -</p>`;
+        const defaultText = `<p style="text-align: center;">제1장. 진짜 최종 해결</p><p><br></p><p>이제 Pretendard 폰트가 안드로이드에서도 깨지지 않습니다!</p><p><br></p><blockquote><strong>원인 및 해결:</strong><br>폰트 파일 경로가 '상대 경로'로 되어 있어 찾지 못하던 문제를 수정했습니다.<br>이제 CSS 파일 위치를 기준으로<br>정확한 폰트 파일을 찾아내어 저장합니다.</blockquote><p><br></p><p style="text-align: right;">- 경로 추적 로직 추가 완료 -</p>`;
 
         const [content, setContent] = useState(() => {
           try {
@@ -285,7 +352,6 @@
           setShowClearModal(false);
         };
 
-        // 이미지 저장 기능
         const handleSaveImage = async () => {
           const htmlToImageLib = window.htmlToImage;
 
@@ -302,44 +368,8 @@
           try {
             await document.fonts.ready;
 
-            // 1. 현재 사용 중인 폰트 이름 파악
-            let activeFontName = 'Pretendard Variable';
-            if (settings.fontFamily.includes('KoPub Batang'))
-              activeFontName = 'KoPub Batang';
-            else if (settings.fontFamily.includes('KoPub World Batang'))
-              activeFontName = 'KoPub World Batang';
-            else if (settings.fontFamily.includes('Noto Sans'))
-              activeFontName = 'Noto Sans KR';
-            else if (
-              settings.fontFamily.includes('Pretendard') &&
-              !settings.fontFamily.includes('Variable')
-            )
-              activeFontName = 'Pretendard';
-
-            // 2. 폰트 URL 가져오기
-            const fontUrl = FONT_FILE_URLS[activeFontName];
-
-            // 3. 폰트 파일 임베딩 (캐시 사용)
-            let fontEmbedCSS = '';
-            if (fontUrl) {
-              let fontDataURL = fontCache.get(activeFontName);
-              if (!fontDataURL) {
-                fontDataURL = await loadFontAsBase64(fontUrl);
-                if (fontDataURL) fontCache.set(activeFontName, fontDataURL);
-              }
-
-              if (fontDataURL) {
-                // 임시 폰트 이름 정의 ('SavedActiveFont')
-                fontEmbedCSS = `
-                                @font-face {
-                                    font-family: 'SavedActiveFont';
-                                    src: url('${fontDataURL}') format('woff2');
-                                    font-weight: normal;
-                                    font-style: normal;
-                                }
-                            `;
-              }
-            }
+            // [핵심] 개선된 폰트 임베딩 (상대 경로 해결)
+            const fontEmbedCSS = await prepareFontEmbedCSS(settings.fontFamily);
 
             const scale = 3;
             const rootFontSize = parseFloat(
@@ -350,7 +380,6 @@
 
             const originalWidth = node.offsetWidth;
             const originalHeight = node.offsetHeight;
-
             const totalWidth = originalWidth + paddingX * 2;
             const totalHeight = originalHeight + paddingY * 2;
 
@@ -368,10 +397,7 @@
                 height: `${totalHeight}px`,
                 boxSizing: 'border-box',
                 margin: 0,
-                // 저장 시에는 임베딩된 'SavedActiveFont'를 최우선으로 사용
-                fontFamily: fontEmbedCSS
-                  ? "'SavedActiveFont', sans-serif"
-                  : settings.fontFamily,
+                fontFamily: settings.fontFamily,
               },
               cacheBust: true,
             };
@@ -749,6 +775,7 @@
                 </div>
               )}
             </header>
+
             <main
               className={`${
                 isEditing ? 'pt-36 sm:pt-32' : 'pt-20'
@@ -783,6 +810,7 @@
                 )}
               </div>
             </main>
+
             {tableModal.show && (
               <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
                 <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-xs font-sans text-gray-800">
@@ -852,6 +880,7 @@
                 </div>
               </div>
             )}
+
             {showClearModal && (
               <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4">
                 <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-xs font-sans text-gray-800">
@@ -878,6 +907,7 @@
                 </div>
               </div>
             )}
+
             <div
               className={`fixed inset-y-0 right-0 w-80 bg-white transform transition-transform duration-300 z-50 overflow-y-auto ${
                 showSettings ? 'translate-x-0 shadow-2xl' : 'translate-x-full'
