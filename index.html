@@ -363,17 +363,16 @@
             const fontEmbedCSS = await prepareFontEmbedCSS(settings.fontFamily);
 
             const scale = 1;
-            // const rootFontSize = parseFloat(
-            //   getComputedStyle(document.documentElement).fontSize,
-            // );
-            const paddingY = 40;
-            const paddingX = 60;
+            const rootFontSize = parseFloat(
+              getComputedStyle(document.documentElement).fontSize,
+            );
+            const paddingY = 0;
+            const paddingX = 0;
 
             const originalWidth = node.offsetWidth;
             const originalHeight = node.offsetHeight;
-            // const totalWidth = originalWidth + paddingX * 2;
-            const totalWidth = 1200;
-            const totalHeight = originalHeight + paddingY * 2;
+            const totalWidth = originalWidth;
+            const totalHeight = originalHeight;
 
             const options = {
               width: totalWidth * scale,
@@ -383,7 +382,7 @@
               style: {
                 transform: `scale(${scale})`,
                 transformOrigin: 'top left',
-                padding: `40px ${(totalWidth - originalWidth) / 2}px`,
+                // padding: '1.3rem 2rem',
                 backgroundColor: settings.bgColor,
                 width: `${totalWidth}px`,
                 height: `${totalHeight}px`,
