@@ -371,12 +371,12 @@
             // [핵심] 개선된 폰트 임베딩 (상대 경로 해결)
             const fontEmbedCSS = await prepareFontEmbedCSS(settings.fontFamily);
 
-            const scale = 2;
+            const scale = 1;
             const rootFontSize = parseFloat(
               getComputedStyle(document.documentElement).fontSize,
             );
-            const paddingY = 1 * rootFontSize;
-            const paddingX = 1.5 * rootFontSize;
+            const paddingY = 0.5 * rootFontSize;
+            const paddingX = 1 * rootFontSize;
 
             const originalWidth = node.offsetWidth;
             const originalHeight = node.offsetHeight;
@@ -391,7 +391,7 @@
               style: {
                 transform: `scale(${scale})`,
                 transformOrigin: 'top left',
-                padding: '1rem 1.5rem',
+                padding: '0.5rem 1rem',
                 backgroundColor: settings.bgColor,
                 width: `${totalWidth}px`,
                 height: `${totalHeight}px`,
