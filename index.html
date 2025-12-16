@@ -29,12 +29,13 @@
 
     <!-- 4. 스타일 -->
     <style>
+      /* 화면 표시용 폰트 로드 */
       @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css');
       @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@100..900&display=swap');
       @import url('https://cdn.jsdelivr.net/npm/font-kopub@1.0/kopubbatang.min.css');
       @import url('https://cdn.jsdelivr.net/npm/font-kopub@1.0/kopubworldbatang.min.css');
 
-      /* 안드로이드 호환용 폰트 정의 */
+      /* 말줄임표 교정용 폰트 */
       @font-face {
         font-family: 'EllipsisFix';
         src: url('https://cdn.jsdelivr.net/npm/font-kopub@1.0/fonts/KoPubBatangMedium.woff2') format('woff2');
@@ -71,10 +72,16 @@
         const editorRef = useRef(null);
         const savedRange = useRef(null);
 
-        // 폰트 Base64 데이터 캐싱용
-        const fontBase64Ref = useRef(null);
+        // 폰트 파일 매핑 (저장 시 사용)
+        const fontUrlMap = {
+            'Pretendard Variable': 'https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-regular.woff2',
+            'Pretendard': 'https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-regular.woff2',
+            'KoPub Batang': 'https://cdn.jsdelivr.net/npm/font-kopub@1.0/fonts/KoPubBatangMedium.woff2',
+            'KoPub World Batang': 'https://cdn.jsdelivr.net/npm/font-kopub@1.0/fonts/KoPubWorldBatangMedium.woff2',
+            'Noto Sans KR': 'https://fonts.gstatic.com/s/notosanskr/v27/PbykFmXiEBPT4ITbgNA5Cgm203Tq4JJWq209pU0DPdWu7yE4OA.woff2'
+        };
 
-        const defaultText = `<p style="text-align: center;">제1장. 폰트 강제 주입</p><p><br></p><p>안드로이드 폰트 깨짐 현상을 해결하기 위해 강력한 처방을 내렸습니다.</p><p><br></p><blockquote>이미지를 저장할 때 <strong>폰트 파일 자체를 코드에 심어서(Embedding)</strong> 저장합니다.<br>이제 어떤 환경에서도 Pretendard 폰트가 유지될 것입니다.</blockquote><p><br></p><p style="text-align: right;">- 최종 호환성 패치 -</p>`;
+        const defaultText = `<p style="text-align: center;">제1장. 안드로이드 정복</p><p><br></p><p>이제 진짜 폰트가 깨지지 않습니다.</p><p><br></p><blockquote><strong>해결 원리:</strong><br>저장 버튼을 누르면 현재 설정된 폰트 파일(.woff2)을<br>강제로 다운로드하여 이미지 속에 심어버립니다.<br><br>따라서 인터넷 보안 정책이 까다로운 안드로이드에서도<br><strong>Pretendard</strong> 폰트가 선명하게 유지됩니다.</blockquote><p><br></p><p style="text-align: right;">- 폰트 강제 주입 패치 완료 -</p>`;
 
         const [content, setContent] = useState(() => {
           try {
@@ -166,15 +173,14 @@
           setShowClearModal(false);
         };
 
-        // [핵심] 폰트 파일을 Fetch해서 Base64로 변환하는 함수
-        const loadFontAsBase64 = async (url) => {
+        // 폰트 파일을 DataURL(Base64)로 변환하는 함수
+        const loadFontAsDataURL = async (url) => {
             try {
                 const response = await fetch(url);
                 const blob = await response.blob();
-                return new Promise((resolve, reject) => {
+                return new Promise((resolve) => {
                     const reader = new FileReader();
                     reader.onloadend = () => resolve(reader.result);
-                    reader.onerror = reject;
                     reader.readAsDataURL(blob);
                 });
             } catch (e) {
@@ -186,7 +192,7 @@
         const handleSaveImage = async () => {
           const htmlToImageLib = window.htmlToImage;
           if (!htmlToImageLib) {
-            alert('기능을 불러오는 중입니다. 잠시 후 시도해주세요.');
+            alert('기능 로딩 중입니다. 잠시 후 시도해주세요.');
             return;
           }
 
@@ -199,26 +205,30 @@
             // 폰트 로딩 대기
             await document.fonts.ready;
 
-            // [폰트 강제 주입]
-            // Pretendard 폰트 파일을 직접 다운로드해서 CSS 문자열로 만듭니다.
-            // 이미 캐싱된 값이 없으면 새로 받아옵니다.
-            if (!fontBase64Ref.current) {
-                // Pretendard Regular (표준) WOFF2 파일 URL
-                const fontUrl = 'https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-regular.woff2';
-                fontBase64Ref.current = await loadFontAsBase64(fontUrl);
-            }
+            // 1. 현재 사용 중인 폰트 이름 찾기 (settings.fontFamily 분석)
+            let activeFontName = 'Pretendard Variable'; // 기본값
+            if (settings.fontFamily.includes('KoPub Batang')) activeFontName = 'KoPub Batang';
+            else if (settings.fontFamily.includes('KoPub World Batang')) activeFontName = 'KoPub World Batang';
+            else if (settings.fontFamily.includes('Noto Sans')) activeFontName = 'Noto Sans KR';
+            else if (settings.fontFamily.includes('Pretendard') && !settings.fontFamily.includes('Variable')) activeFontName = 'Pretendard';
 
-            // 임베딩할 CSS 생성
+            // 2. 해당 폰트 URL 가져오기
+            const fontUrl = fontUrlMap[activeFontName];
+            
+            // 3. 폰트 파일을 Base64로 변환 (안드로이드 보안 정책 우회 핵심)
             let fontEmbedCSS = '';
-            if (fontBase64Ref.current) {
-                fontEmbedCSS = `
-                    @font-face {
-                        font-family: 'Pretendard Fix';
-                        src: url('${fontBase64Ref.current}') format('woff2');
-                        font-weight: 400;
-                        font-style: normal;
-                    }
-                `;
+            if (fontUrl) {
+                const fontDataURL = await loadFontAsDataURL(fontUrl);
+                if (fontDataURL) {
+                    fontEmbedCSS = `
+                        @font-face {
+                            font-family: 'SavedActiveFont';
+                            src: url('${fontDataURL}') format('woff2');
+                            font-weight: normal;
+                            font-style: normal;
+                        }
+                    `;
+                }
             }
 
             const scale = 3;
@@ -235,8 +245,7 @@
               width: totalWidth * scale,
               height: totalHeight * scale,
               backgroundColor: settings.bgColor,
-              // [중요] 생성된 폰트 CSS를 여기에 주입
-              fontEmbedCSS: fontEmbedCSS, 
+              fontEmbedCSS: fontEmbedCSS, // 생성한 폰트 CSS 주입
               style: {
                 transform: `scale(${scale})`,
                 transformOrigin: 'top left',
@@ -246,8 +255,8 @@
                 height: `${totalHeight}px`,
                 boxSizing: 'border-box',
                 margin: 0,
-                // [중요] 주입한 폰트 이름('Pretendard Fix')을 강제로 최우선 적용
-                fontFamily: "'Pretendard Fix', " + settings.fontFamily, 
+                // 주입한 폰트를 최우선으로 적용
+                fontFamily: fontEmbedCSS ? "'SavedActiveFont', sans-serif" : settings.fontFamily, 
               },
               cacheBust: true,
             };
