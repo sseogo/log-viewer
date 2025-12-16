@@ -9,7 +9,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
 
     <!-- 2. 라이브러리 -->
-    <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
     <!-- 3. React -->
@@ -26,15 +26,17 @@
 
     <!-- 4. 스타일 -->
     <style>
+        /* 기본 폰트 로드 (화면 표시용) */
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css');
-        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.css');
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@100..900&display=swap');
         @import url('https://cdn.jsdelivr.net/npm/font-kopub@1.0/kopubbatang.min.css');
         @import url('https://cdn.jsdelivr.net/npm/font-kopub@1.0/kopubworldbatang.min.css');
 
+        /* 말줄임표용 특수 폰트 (로컬 폰트 사용 시도 후 웹폰트 폴백) */
         @font-face {
             font-family: 'EllipsisFix';
-            src: url('https://cdn.jsdelivr.net/npm/font-kopub@1.0/fonts/KoPubBatangMedium.woff2') format('woff2');
+            src: local('Apple SD Gothic Neo'), local('Malgun Gothic'), local('Dotum'), local('sans-serif'),
+                 url('https://cdn.jsdelivr.net/npm/font-kopub@1.0/fonts/KoPubBatangMedium.woff2') format('woff2');
             unicode-range: U+2026; 
         }
 
@@ -81,27 +83,27 @@
         // 폰트 캐시
         const fontCache = new Map();
 
-        // 폰트 임베딩 함수 (mob.html 로직 이식)
+        // [핵심] 폰트 임베딩 함수 (mob.html 로직 이식)
         async function prepareFontEmbedCSS(activeFontKey) {
-            // 복합 폰트 문자열에서 첫 번째 폰트 이름 추출 ('EllipsisFix', 'Pretendard' -> 'Pretendard')
-            // EllipsisFix는 별도 처리하므로 제외하고 메인 폰트를 찾음
+            // 복합 폰트 문자열에서 첫 번째 폰트 이름 추출
             let mainFontKey = 'Pretendard Variable';
             if(activeFontKey.includes('Pretendard') && !activeFontKey.includes('Variable')) mainFontKey = 'Pretendard';
             else if(activeFontKey.includes('KoPub Batang')) mainFontKey = 'KoPub Batang';
             else if(activeFontKey.includes('KoPub World Batang')) mainFontKey = 'KoPub World Batang';
             else if(activeFontKey.includes('Noto Sans')) mainFontKey = 'Noto Sans KR';
 
+            // 캐시 확인
             if (fontCache.has(mainFontKey)) return fontCache.get(mainFontKey);
 
             try {
                 const fontInfo = FONT_MAP[mainFontKey];
                 if (!fontInfo) return null;
 
-                // 1. CSS 파일 Fetch
+                // 1. CSS 파일 가져오기
                 const cssRes = await fetch(fontInfo.url);
                 let cssText = await cssRes.text();
 
-                // 2. CSS 내부의 url(...) 추출
+                // 2. CSS 내의 폰트 파일 URL 추출 및 변환
                 const urlRegex = /url\(([^)]+)\)/g;
                 let match;
                 const replacements = [];
@@ -140,6 +142,7 @@
                     cssText += ellipsisCss;
                 } catch(e) {}
 
+                // 캐시에 저장 및 반환
                 fontCache.set(mainFontKey, cssText);
                 return cssText;
             } catch (e) { return null; }
@@ -154,7 +157,7 @@
             const editorRef = useRef(null);
             const savedRange = useRef(null);
 
-            const defaultText = `<p style="text-align: center;">제1장. 폰트의 완성</p><p><br></p><p>이제 안드로이드에서도 폰트가 완벽하게 저장됩니다.</p><p><br></p><blockquote>mob.html의 <strong>고급 폰트 임베딩 기술</strong>을 적용하여,<br>외부 폰트 파일을 CSS째로 캡처하여 저장합니다.<br><br>따라서 <strong>Pretendard</strong>와 <strong>말줄임표(…)</strong>가<br>어떤 환경에서도 깨지지 않고 유지됩니다.</blockquote><p><br></p><p style="text-align: right;">- 최종 호환성 패치 완료 -</p>`;
+            const defaultText = `<p style="text-align: center;">제1장. 폰트 문제 해결</p><p><br></p><p>이제 안드로이드에서도 폰트가 깨지지 않습니다.</p><p><br></p><blockquote>mob.html의 <strong>고급 폰트 임베딩 기술</strong>을 적용하여,<br>외부 폰트 파일을 CSS째로 캡처하여 저장합니다.<br><br>따라서 <strong>Pretendard</strong>와 <strong>말줄임표(…)</strong>가<br>어떤 환경에서도 깨지지 않고 유지됩니다.</blockquote><p><br></p><p style="text-align: right;">- 최종 호환성 패치 완료 -</p>`;
 
             const [content, setContent] = useState(() => {
                 try {
@@ -210,7 +213,7 @@
                 try {
                     await document.fonts.ready;
                     
-                    // 1. 폰트 임베딩 CSS 준비
+                    // 1. 폰트 임베딩 CSS 준비 (핵심 로직)
                     const fontEmbedCSS = await prepareFontEmbedCSS(settings.fontFamily);
 
                     const scale = 3;
@@ -238,13 +241,12 @@
                             height: `${totalHeight}px`,
                             boxSizing: 'border-box',
                             margin: 0,
-                            // 폰트 패밀리 유지
+                            // 폰트 패밀리 유지 (중요)
                             fontFamily: settings.fontFamily, 
                         },
                         cacheBust: true,
                     };
 
-                    // toPng 사용 (dom-to-image 대신)
                     const dataUrl = await htmlToImageLib.toPng(node, options);
                     const res = await fetch(dataUrl);
                     const blob = await res.blob();
