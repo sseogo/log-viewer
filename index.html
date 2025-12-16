@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
-    <title>로그 뷰어</title>
+    <title>나만의 웹소설 스튜디오</title>
 
     <!-- 1. Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -133,107 +133,36 @@
         Redo,
       } from 'lucide-react';
 
-      // 폰트 정보 맵핑 (CSS 파일 URL)
-      const FONT_MAP = {
-        'Pretendard Variable': {
-          url: 'https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css',
-        },
-        Pretendard: {
-          url: 'https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.css',
-        },
-        'KoPub Batang': {
-          url: 'https://cdn.jsdelivr.net/npm/font-kopub@1.0/kopubbatang.min.css',
-        },
-        'KoPub World Batang': {
-          url: 'https://cdn.jsdelivr.net/npm/font-kopub@1.0/kopubworldbatang.min.css',
-        },
-        'Noto Sans KR': {
-          url: 'https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@100..900&display=swap',
-        },
+      // 폰트 파일 URL 맵핑 (직접 다운로드용)
+      const FONT_FILE_URLS = {
+        'Pretendard Variable':
+          'https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-regular.woff2', // Static Regular 사용
+        Pretendard:
+          'https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-regular.woff2',
+        'KoPub Batang':
+          'https://cdn.jsdelivr.net/npm/font-kopub@1.0/fonts/KoPubBatangMedium.woff2',
+        'KoPub World Batang':
+          'https://cdn.jsdelivr.net/npm/font-kopub@1.0/fonts/KoPubWorldBatangMedium.woff2',
+        'Noto Sans KR':
+          'https://fonts.gstatic.com/s/notosanskr/v27/PbykFmXiEBPT4ITbgNA5Cgm203Tq4JJWq209pU0DPdWu7yE4OA.woff2',
       };
 
       // 폰트 캐시
       const fontCache = new Map();
 
-      // [핵심] 폰트 임베딩 함수 (mob.html 로직 이식)
-      async function prepareFontEmbedCSS(activeFontKey) {
-        // 복합 폰트 문자열에서 첫 번째 폰트 이름 추출
-        let mainFontKey = 'Pretendard Variable';
-        if (
-          activeFontKey.includes('Pretendard') &&
-          !activeFontKey.includes('Variable')
-        )
-          mainFontKey = 'Pretendard';
-        else if (activeFontKey.includes('KoPub Batang'))
-          mainFontKey = 'KoPub Batang';
-        else if (activeFontKey.includes('KoPub World Batang'))
-          mainFontKey = 'KoPub World Batang';
-        else if (activeFontKey.includes('Noto Sans'))
-          mainFontKey = 'Noto Sans KR';
-
-        // 캐시 확인
-        if (fontCache.has(mainFontKey)) return fontCache.get(mainFontKey);
-
+      // 폰트 파일을 Base64로 변환하는 함수
+      async function loadFontAsBase64(url) {
         try {
-          const fontInfo = FONT_MAP[mainFontKey];
-          if (!fontInfo) return null;
-
-          // 1. CSS 파일 가져오기
-          const cssRes = await fetch(fontInfo.url);
-          let cssText = await cssRes.text();
-
-          // 2. CSS 내의 폰트 파일 URL 추출 및 변환
-          const urlRegex = /url\(([^)]+)\)/g;
-          let match;
-          const replacements = [];
-          while ((match = urlRegex.exec(cssText)) !== null) {
-            const fullUrl = match[1].replace(/['"]/g, '');
-            replacements.push({ original: match[0], url: fullUrl });
-          }
-
-          // 3. 폰트 파일 다운로드 및 Base64 변환
-          await Promise.all(
-            replacements.map(async (item) => {
-              try {
-                const fontRes = await fetch(item.url);
-                const fontBlob = await fontRes.blob();
-                return new Promise((resolve, reject) => {
-                  const reader = new FileReader();
-                  reader.onloadend = () => {
-                    cssText = cssText.replace(
-                      item.original,
-                      `url(${reader.result})`,
-                    );
-                    resolve();
-                  };
-                  reader.onerror = reject;
-                  reader.readAsDataURL(fontBlob);
-                });
-              } catch (e) {
-                console.warn('Font file fetch failed', e);
-              }
-            }),
-          );
-
-          // 4. 말줄임표용 EllipsisFix 폰트도 Base64로 변환하여 추가
-          try {
-            const ellipsisRes = await fetch(
-              'https://cdn.jsdelivr.net/npm/font-kopub@1.0/fonts/KoPubBatangMedium.woff2',
-            );
-            const ellipsisBlob = await ellipsisRes.blob();
-            const ellipsisBase64 = await new Promise((resolve) => {
-              const reader = new FileReader();
-              reader.onloadend = () => resolve(reader.result);
-              reader.readAsDataURL(ellipsisBlob);
-            });
-            const ellipsisCss = `@font-face { font-family: 'EllipsisFix'; src: url('${ellipsisBase64}') format('woff2'); unicode-range: U+2026; }`;
-            cssText += ellipsisCss;
-          } catch (e) {}
-
-          // 캐시에 저장 및 반환
-          fontCache.set(mainFontKey, cssText);
-          return cssText;
+          const response = await fetch(url);
+          const blob = await response.blob();
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
         } catch (e) {
+          console.error('폰트 로딩 실패:', e);
           return null;
         }
       }
@@ -242,27 +171,31 @@
         const [isEditing, setIsEditing] = useState(true);
         const [showSettings, setShowSettings] = useState(false);
         const [resetConfirm, setResetConfirm] = useState(false);
+
         const [tableModal, setTableModal] = useState({
           show: false,
           rows: 3,
           cols: 3,
           widths: '33.3, 33.3, 33.3',
         });
+
         const [showClearModal, setShowClearModal] = useState(false);
+
         const editorRef = useRef(null);
         const savedRange = useRef(null);
 
-        const defaultText = `<p style="text-align: center;">제1장. 폰트 문제 해결</p><p><br></p><p>이제 안드로이드에서도 폰트가 깨지지 않습니다.</p><p><br></p><blockquote>mob.html의 <strong>고급 폰트 임베딩 기술</strong>을 적용하여,<br>외부 폰트 파일을 CSS째로 캡처하여 저장합니다.<br><br>따라서 <strong>Pretendard</strong>와 <strong>말줄임표(…)</strong>가<br>어떤 환경에서도 깨지지 않고 유지됩니다.</blockquote><p><br></p><p style="text-align: right;">- 최종 호환성 패치 완료 -</p>`;
+        const defaultText = `<p style="text-align: center;">제1장. 완전한 해결</p><p><br></p><p>이제 안드로이드에서도 Pretendard 폰트가 깨지지 않습니다.</p><p><br></p><blockquote>기존 방식의 문제점을 분석하여,<br>CSS 파일 파싱 대신 <strong>폰트 파일(.woff2)을 직접 다운로드</strong>하여<br>Base64로 변환하는 방식으로 변경했습니다.<br><br>이제 이미지 저장 시 <strong>Pretendard Regular</strong> 파일이<br>강제로 포함됩니다.</blockquote><p><br></p><p style="text-align: right;">- 최종 폰트 패치 -</p>`;
 
         const [content, setContent] = useState(() => {
           try {
             const savedContent = localStorage.getItem('novel-content');
             if (!savedContent) return defaultText;
-            if (!savedContent.trim().startsWith('<'))
+            if (!savedContent.trim().startsWith('<')) {
               return savedContent
                 .split('\n')
                 .map((line) => `<p>${line || '<br>'}</p>`)
                 .join('');
+            }
             return savedContent;
           } catch (e) {
             return defaultText;
@@ -270,7 +203,7 @@
         });
 
         const defaultSettings = {
-          bgColor: '#f3f4f6',
+          bgColor: '#f7f7f7',
           textColor: '#333333',
           fontSize: 16,
           lineHeight: 1.6,
@@ -284,8 +217,9 @@
         const [settings, setSettings] = useState(() => {
           try {
             const savedSettings = localStorage.getItem('novel-settings');
-            if (savedSettings)
+            if (savedSettings) {
               return { ...defaultSettings, ...JSON.parse(savedSettings) };
+            }
             return defaultSettings;
           } catch (e) {
             return defaultSettings;
@@ -297,14 +231,17 @@
         useEffect(() => {
           document.execCommand('defaultParagraphSeparator', false, 'p');
         }, []);
+
         useEffect(() => {
           if (
             isEditing &&
             editorRef.current &&
             editorRef.current.innerHTML !== content
-          )
+          ) {
             editorRef.current.innerHTML = content;
+          }
         }, [isEditing]);
+
         useEffect(() => {
           try {
             localStorage.setItem('novel-content', content);
@@ -312,8 +249,10 @@
           } catch (e) {}
         }, [content, settings]);
 
-        const handleSettingChange = (key, value) =>
+        const handleSettingChange = (key, value) => {
           setSettings((prev) => ({ ...prev, [key]: value }));
+        };
+
         const handleResetClick = () => {
           if (resetConfirm) {
             setSettings(defaultSettings);
@@ -323,13 +262,19 @@
             setTimeout(() => setResetConfirm(false), 3000);
           }
         };
+
         const handleEditorBlur = () => {
           updateContentState();
           const selection = window.getSelection();
-          if (selection.rangeCount > 0)
+          if (selection.rangeCount > 0) {
             savedRange.current = selection.getRangeAt(0);
+          }
         };
-        const handleClearClick = () => setShowClearModal(true);
+
+        const handleClearClick = () => {
+          setShowClearModal(true);
+        };
+
         const confirmClear = () => {
           const emptyContent = '<p><br></p>';
           setContent(emptyContent);
@@ -340,11 +285,12 @@
           setShowClearModal(false);
         };
 
-        // [수정됨] 이미지 저장 기능 (html-to-image + 폰트 임베딩)
+        // 이미지 저장 기능
         const handleSaveImage = async () => {
           const htmlToImageLib = window.htmlToImage;
+
           if (!htmlToImageLib) {
-            alert('기능 로딩 중입니다. 잠시 후 시도해주세요.');
+            alert('기능을 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
             return;
           }
 
@@ -356,8 +302,44 @@
           try {
             await document.fonts.ready;
 
-            // 1. 폰트 임베딩 CSS 준비 (핵심 로직)
-            const fontEmbedCSS = await prepareFontEmbedCSS(settings.fontFamily);
+            // 1. 현재 사용 중인 폰트 이름 파악
+            let activeFontName = 'Pretendard Variable';
+            if (settings.fontFamily.includes('KoPub Batang'))
+              activeFontName = 'KoPub Batang';
+            else if (settings.fontFamily.includes('KoPub World Batang'))
+              activeFontName = 'KoPub World Batang';
+            else if (settings.fontFamily.includes('Noto Sans'))
+              activeFontName = 'Noto Sans KR';
+            else if (
+              settings.fontFamily.includes('Pretendard') &&
+              !settings.fontFamily.includes('Variable')
+            )
+              activeFontName = 'Pretendard';
+
+            // 2. 폰트 URL 가져오기
+            const fontUrl = FONT_FILE_URLS[activeFontName];
+
+            // 3. 폰트 파일 임베딩 (캐시 사용)
+            let fontEmbedCSS = '';
+            if (fontUrl) {
+              let fontDataURL = fontCache.get(activeFontName);
+              if (!fontDataURL) {
+                fontDataURL = await loadFontAsBase64(fontUrl);
+                if (fontDataURL) fontCache.set(activeFontName, fontDataURL);
+              }
+
+              if (fontDataURL) {
+                // 임시 폰트 이름 정의 ('SavedActiveFont')
+                fontEmbedCSS = `
+                                @font-face {
+                                    font-family: 'SavedActiveFont';
+                                    src: url('${fontDataURL}') format('woff2');
+                                    font-weight: normal;
+                                    font-style: normal;
+                                }
+                            `;
+              }
+            }
 
             const scale = 3;
             const rootFontSize = parseFloat(
@@ -368,6 +350,7 @@
 
             const originalWidth = node.offsetWidth;
             const originalHeight = node.offsetHeight;
+
             const totalWidth = originalWidth + paddingX * 2;
             const totalHeight = originalHeight + paddingY * 2;
 
@@ -375,7 +358,6 @@
               width: totalWidth * scale,
               height: totalHeight * scale,
               backgroundColor: settings.bgColor,
-              // [핵심] 준비된 폰트 CSS 주입
               fontEmbedCSS: fontEmbedCSS,
               style: {
                 transform: `scale(${scale})`,
@@ -386,8 +368,10 @@
                 height: `${totalHeight}px`,
                 boxSizing: 'border-box',
                 margin: 0,
-                // 폰트 패밀리 유지 (중요)
-                fontFamily: settings.fontFamily,
+                // 저장 시에는 임베딩된 'SavedActiveFont'를 최우선으로 사용
+                fontFamily: fontEmbedCSS
+                  ? "'SavedActiveFont', sans-serif"
+                  : settings.fontFamily,
               },
               cacheBust: true,
             };
@@ -405,7 +389,9 @@
               });
               try {
                 await navigator.share({ files: [file] });
-              } catch (err) {}
+              } catch (err) {
+                console.log('Share failed', err);
+              }
             } else {
               const url = URL.createObjectURL(blob);
               const link = document.createElement('a');
@@ -414,6 +400,7 @@
               link.click();
               URL.revokeObjectURL(url);
             }
+
             document.body.style.cursor = 'default';
           } catch (e) {
             console.error(e);
@@ -425,20 +412,29 @@
         const applyCommand = (command, value = null) => {
           const scrollX = window.scrollX;
           const scrollY = window.scrollY;
+
           if (savedRange.current) {
             const selection = window.getSelection();
             selection.removeAllRanges();
             selection.addRange(savedRange.current);
           }
+
           document.execCommand('styleWithCSS', false, true);
           document.execCommand(command, false, value);
+
           window.scrollTo(scrollX, scrollY);
           updateContentState();
         };
 
-        const insertDivider = () => applyCommand('insertHorizontalRule');
-        const insertQuote = () => applyCommand('formatBlock', 'blockquote');
-        const insertEllipsis = () => applyCommand('insertText', '…');
+        const insertDivider = () => {
+          applyCommand('insertHorizontalRule');
+        };
+        const insertQuote = () => {
+          applyCommand('formatBlock', 'blockquote');
+        };
+        const insertEllipsis = () => {
+          applyCommand('insertText', '…');
+        };
 
         const openTableModal = () => {
           const cols = 3;
@@ -446,12 +442,14 @@
           const widths = Array(cols).fill(defaultWidth).join(', ');
           setTableModal({ show: true, rows: 3, cols: 3, widths });
         };
+
         const handleColChange = (newCols) => {
           const safeCols = Math.max(1, parseInt(newCols) || 1);
           const defaultWidth = (100 / safeCols).toFixed(1);
           const widths = Array(safeCols).fill(defaultWidth).join(', ');
           setTableModal({ ...tableModal, cols: safeCols, widths });
         };
+
         const insertTable = () => {
           const { rows, cols, widths } = tableModal;
           let widthList = widths.split(',').map((w) => parseFloat(w.trim()));
@@ -459,6 +457,7 @@
             const defaultW = (100 / cols).toFixed(1);
             widthList = Array(cols).fill(defaultW);
           }
+
           let tableHTML =
             '<table style="width: 100%; border-collapse: collapse; margin: 1em 0; table-layout: fixed;"><tbody>';
           for (let i = 0; i < rows; i++) {
@@ -470,12 +469,15 @@
             tableHTML += '</tr>';
           }
           tableHTML += '</tbody></table><p><br></p>';
+
           setTableModal({ ...tableModal, show: false });
+
           if (savedRange.current) {
             const selection = window.getSelection();
             selection.removeAllRanges();
             selection.addRange(savedRange.current);
           }
+
           document.execCommand('insertHTML', false, tableHTML);
           updateContentState();
         };
@@ -486,8 +488,10 @@
             selection.removeAllRanges();
             selection.addRange(savedRange.current);
           }
+
           const selection = window.getSelection();
           if (!selection.rangeCount) return;
+
           let node = selection.anchorNode;
           while (node && node !== editorRef.current) {
             if (node.nodeName === 'TD' || node.nodeName === 'TH') {
@@ -516,14 +520,17 @@
               }
             }
           }
+
           if (e.key === ' ' || e.key === 'Enter') {
             const selection = window.getSelection();
             if (selection.rangeCount > 0) {
               const range = selection.getRangeAt(0);
               const textNode = range.startContainer;
+
               if (textNode.nodeType === 3) {
                 const text = textNode.textContent;
                 const offset = range.startOffset;
+
                 if (offset >= 3 && text.slice(offset - 3, offset) === '...') {
                   const newText =
                     text.slice(0, offset - 3) + '…' + text.slice(offset);
@@ -542,6 +549,7 @@
         const updateContentState = () => {
           if (editorRef.current) setContent(editorRef.current.innerHTML);
         };
+
         const fontOptions = [
           {
             name: 'Pretendard Variable',
@@ -581,6 +589,7 @@
                   <Settings size={24} />
                 </button>
               </div>
+
               {isEditing && (
                 <div className="border-t border-black/5 px-2 py-2 overflow-x-auto no-scrollbar">
                   <div className="flex items-center gap-2 min-w-max px-2">
@@ -588,16 +597,19 @@
                       <button
                         onClick={() => applyCommand('undo')}
                         className="p-1.5 hover:bg-black/10 rounded"
+                        title="되돌리기"
                       >
                         <Undo size={18} />
                       </button>
                       <button
                         onClick={() => applyCommand('redo')}
                         className="p-1.5 hover:bg-black/10 rounded"
+                        title="다시 실행"
                       >
                         <Redo size={18} />
                       </button>
                     </div>
+
                     <div className="flex items-center bg-white/50 rounded-lg p-1 border border-black/5 mr-2">
                       <Type size={16} className="text-gray-500 ml-2 mr-1" />
                       <select
@@ -618,22 +630,26 @@
                         ))}
                       </select>
                     </div>
+
                     <div className="flex items-center bg-white/50 rounded-lg p-1 border border-black/5">
                       <button
                         onClick={() => applyCommand('justifyLeft')}
                         className="p-1.5 hover:bg-black/10 rounded"
+                        title="왼쪽"
                       >
                         <AlignLeft size={18} />
                       </button>
                       <button
                         onClick={() => applyCommand('justifyCenter')}
                         className="p-1.5 hover:bg-black/10 rounded"
+                        title="가운데"
                       >
                         <AlignCenter size={18} />
                       </button>
                       <button
                         onClick={() => applyCommand('justifyRight')}
                         className="p-1.5 hover:bg-black/10 rounded"
+                        title="오른쪽"
                       >
                         <AlignRight size={18} />
                       </button>
@@ -642,12 +658,14 @@
                       <button
                         onClick={() => applyCommand('bold')}
                         className="p-1.5 hover:bg-black/10 rounded"
+                        title="굵게"
                       >
                         <Bold size={18} />
                       </button>
                       <button
                         onClick={() => applyCommand('italic')}
                         className="p-1.5 hover:bg-black/10 rounded"
+                        title="기울임"
                       >
                         <Italic size={18} />
                       </button>
@@ -656,24 +674,28 @@
                       <button
                         onClick={insertDivider}
                         className="p-1.5 hover:bg-black/10 rounded"
+                        title="구분선"
                       >
                         <Minus size={18} />
                       </button>
                       <button
                         onClick={insertQuote}
                         className="p-1.5 hover:bg-black/10 rounded"
+                        title="인용구"
                       >
                         <Quote size={18} />
                       </button>
                       <button
                         onClick={insertEllipsis}
                         className="p-1.5 hover:bg-black/10 rounded"
+                        title="말줄임표 (…)"
                       >
                         <MoreHorizontal size={18} />
                       </button>
                       <button
                         onClick={openTableModal}
                         className="p-1.5 hover:bg-black/10 rounded"
+                        title="표 삽입"
                       >
                         <TableIcon size={18} />
                       </button>
@@ -702,12 +724,14 @@
                       <button
                         onClick={() => applyCommand('foreColor', selectedColor)}
                         className="ml-1 p-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded transition-colors"
+                        title="글자색"
                       >
                         <Check size={14} strokeWidth={3} />
                       </button>
                       <button
                         onClick={applyCellBackground}
                         className="ml-1 p-1 bg-yellow-50 hover:bg-yellow-100 text-yellow-600 rounded transition-colors"
+                        title="배경색"
                       >
                         <PaintBucket size={14} strokeWidth={3} />
                       </button>
@@ -716,6 +740,7 @@
                       <button
                         onClick={handleClearClick}
                         className="p-1.5 hover:bg-red-100 text-red-600 rounded"
+                        title="전체 삭제"
                       >
                         <Trash2 size={18} />
                       </button>
