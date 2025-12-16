@@ -371,7 +371,8 @@
 
             const originalWidth = node.offsetWidth;
             const originalHeight = node.offsetHeight;
-            const totalWidth = originalWidth + paddingX * 2;
+            // const totalWidth = originalWidth + paddingX * 2;
+            const totalWidth = 1200;
             const totalHeight = originalHeight + paddingY * 2;
 
             const options = {
@@ -382,7 +383,7 @@
               style: {
                 transform: `scale(${scale})`,
                 transformOrigin: 'top left',
-                padding: '40px 60px',
+                padding: `40px ${(totalWidth - originalWidth) / 2}px`,
                 backgroundColor: settings.bgColor,
                 width: `${totalWidth}px`,
                 height: `${totalHeight}px`,
