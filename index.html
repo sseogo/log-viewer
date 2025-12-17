@@ -257,6 +257,7 @@
                 setShowClearModal(false);
             };
 
+            // [수정됨] 이미지 저장 로직: 슈퍼샘플링 + 리사이징 전략 적용
             const handleSaveImage = async () => {
                 const htmlToImageLib = window.htmlToImage;
                 
@@ -276,9 +277,7 @@
                     // 폰트 임베딩 CSS 준비
                     const fontEmbedCSS = await prepareFontEmbedCSS(settings.fontFamily);
 
-                    // --- [너비 1080px + 줄간격 버그 수정 로직 개선] ---
-                    
-                    // 1. 패딩값
+                    // 1. 여백 및 원본 크기 설정
                     const paddingTop = 16;
                     const paddingBottom = 12;
                     const paddingLeft = 22;
@@ -287,74 +286,89 @@
                     const originalWidth = node.offsetWidth;
                     const originalHeight = node.offsetHeight;
                     
-                    // 2. 논리적 너비 (화면상 보이는 크기에 패딩만 더함)
-                    // Math.ceil을 사용하여 소수점 오차 방지
+                    // 2. 논리적 너비/높이 계산 (패딩 포함)
                     const currentTotalWidth = Math.ceil(originalWidth + (paddingLeft + paddingRight));
                     const currentTotalHeight = Math.ceil(originalHeight + (paddingTop + paddingBottom));
 
-                    // 3. 목표 너비 설정 및 픽셀 비율(스케일) 계산
-                    // CSS transform 대신 pixelRatio를 사용하여 고해상도로 렌더링합니다.
-                    // 이렇게 하면 텍스트의 줄간격(행간)이 뭉개지는 서브픽셀 렌더링 문제를 방지할 수 있습니다.
-                    const TARGET_WIDTH = 1080; 
-                    const scale = TARGET_WIDTH / currentTotalWidth; 
+                    // [핵심 해결책] 슈퍼샘플링 (Super-sampling)
+                    // 소수점 배율(예: 1.34배) 대신 정수 배율(3배)로 고해상도 렌더링을 먼저 수행합니다.
+                    // 이렇게 하면 픽셀 스내핑(Pixel Snapping) 오차로 인한 줄간격 불일치 문제가 사라집니다.
+                    const SUPER_SAMPLE_RATIO = 3; 
 
                     const options = {
-                        // 중요: width/height를 '논리적 크기'로 설정하여 레이아웃 변형 방지
                         width: currentTotalWidth,
                         height: currentTotalHeight,
-                        
-                        // 중요: pixelRatio를 scale값으로 설정하여 출력 해상도만 키움 (1080px 폭이 됨)
-                        pixelRatio: scale, 
-
+                        pixelRatio: SUPER_SAMPLE_RATIO, 
                         backgroundColor: settings.bgColor,
                         fontEmbedCSS: fontEmbedCSS,
-                        
                         style: {
-                            // 중요: transform: scale(...) 제거
-                            // transform 대신 pixelRatio가 스케일링을 담당합니다.
-                            
+                            // transform 제거, 논리적 크기 그대로 렌더링
                             width: `${currentTotalWidth}px`,
                             height: `${currentTotalHeight}px`,
-                            
-                            // 패딩 적용
                             padding: `${paddingTop}px ${paddingRight}px ${paddingBottom}px ${paddingLeft}px`,
-                            
                             backgroundColor: settings.bgColor,
                             boxSizing: 'border-box',
                             margin: 0,
                             fontFamily: settings.fontFamily,
-                            
-                            // 텍스트 렌더링 품질 옵션
+                            // 텍스트 렌더링 최적화
                             textRendering: 'geometricPrecision',
                             WebkitFontSmoothing: 'antialiased',
                             MozOsxFontSmoothing: 'grayscale',
                         },
                         cacheBust: true,
                     };
-                    // ------------------------------------
 
-                    const dataUrl = await htmlToImageLib.toPng(node, options);
-                    const res = await fetch(dataUrl);
-                    const blob = await res.blob();
-                    
+                    // 1단계: 고해상도(3배) 이미지 생성
+                    const highResDataUrl = await htmlToImageLib.toPng(node, options);
+
+                    // 2단계: 1080px로 리사이징 (캔버스 활용)
+                    const resizeToTarget = (srcUrl, targetWidth) => {
+                        return new Promise((resolve, reject) => {
+                            const img = new Image();
+                            img.onload = () => {
+                                // 비율 유지하며 높이 계산
+                                const aspect = img.height / img.width;
+                                const targetHeight = Math.floor(targetWidth * aspect);
+                                
+                                const canvas = document.createElement('canvas');
+                                canvas.width = targetWidth;
+                                canvas.height = targetHeight;
+                                const ctx = canvas.getContext('2d');
+                                
+                                // 리사이징 품질 향상 (부드럽게 축소)
+                                ctx.imageSmoothingEnabled = true;
+                                ctx.imageSmoothingQuality = 'high';
+                                
+                                ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+                                
+                                canvas.toBlob(resolve, 'image/png', 1.0);
+                            };
+                            img.onerror = reject;
+                            img.src = srcUrl;
+                        });
+                    };
+
+                    const finalBlob = await resizeToTarget(highResDataUrl, 1080);
+
+                    // 3단계: 다운로드 / 공유
                     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
                     if (isIOS && navigator.share) {
-                        const file = new File([blob], `novel-${Date.now()}.png`, { type: "image/png" });
+                        const file = new File([finalBlob], `novel-${Date.now()}.png`, { type: "image/png" });
                         try {
                             await navigator.share({ files: [file] });
                         } catch (err) {
                             console.log("Share failed", err);
                         }
                     } else {
-                        const url = URL.createObjectURL(blob);
+                        const url = URL.createObjectURL(finalBlob);
                         const link = document.createElement('a');
                         link.download = `novel-${Date.now()}.png`;
                         link.href = url;
                         link.click();
-                        URL.revokeObjectURL(url);
+                        setTimeout(() => URL.revokeObjectURL(url), 100);
                     }
-
+                    
                     document.body.style.cursor = 'default';
 
                 } catch (e) {
