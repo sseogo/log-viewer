@@ -513,7 +513,7 @@
 
             return (
                 <div 
-                    className="min-h-screen transition-colors duration-300 ease-in-out relative overflow-hidden flex flex-col"
+                    className="min-h-screen transition-colors duration-300 ease-in-out relative overflow-x-hidden flex flex-col"
                     style={{ 
                         backgroundColor: settings.bgColor,
                         color: settings.textColor,
@@ -530,7 +530,7 @@
                     `}</style>
 
                     <header 
-                        className="fixed top-0 left-0 right-0 z-50 transition-all duration-300 bg-opacity-95 backdrop-blur-md border-b border-black/5" 
+                        className="sticky top-0 left-0 right-0 z-50 transition-all duration-300 bg-opacity-95 backdrop-blur-md border-b border-black/5" 
                         style={{ backgroundColor: settings.bgColor }}
                     >
                         <div className="flex justify-between items-center px-4 py-2">
@@ -592,7 +592,7 @@
                         )}
                     </header>
 
-                    <main className={`${isEditing ? 'pt-36 sm:pt-32' : 'pt-20'} pb-24 px-4 max-w-3xl mx-auto w-full flex-grow`}>
+                    <main className="pb-24 px-4 max-w-3xl mx-auto w-full flex-grow">
                         <div 
                             className="novel-content mt-6 break-words outline-none"
                             style={{
