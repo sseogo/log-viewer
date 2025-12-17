@@ -182,7 +182,7 @@
                 bgColor: '#f2f3f6',
                 textColor: '#262626',
                 fontSize: 14,
-                lineHeight: 1.6,
+                lineHeight: 24, // 기본값 변경: 1.6 -> 24px
                 letterSpacing: 0,
                 fontWeight: 400,
                 fontFamily: "'EllipsisFix', 'Pretendard Variable', sans-serif", 
@@ -194,7 +194,14 @@
                 try {
                     const savedSettings = localStorage.getItem('novel-settings');
                     if (savedSettings) {
-                        return { ...defaultSettings, ...JSON.parse(savedSettings) };
+                        const parsed = JSON.parse(savedSettings);
+                        
+                        // 데이터 마이그레이션: 기존 사용자의 lineHeight가 배율(예: 1.6)로 저장되어 있다면 픽셀 단위 기본값으로 초기화
+                        if (parsed.lineHeight && parsed.lineHeight < 10) {
+                            parsed.lineHeight = 24;
+                        }
+                        
+                        return { ...defaultSettings, ...parsed };
                     }
                     return defaultSettings;
                 } catch (e) {
@@ -279,9 +286,9 @@
                     // --- [너비 1080px + 줄간격 버그 수정 로직 개선] ---
                     
                     // 1. 패딩값
-                    const paddingTop = 16;
+                    const paddingTop = 15;
                     const paddingBottom = 12;
-                    const paddingLeft = 22;
+                    const paddingLeft = 20;
                     const paddingRight = 20;
                     
                     const originalWidth = node.offsetWidth;
@@ -590,7 +597,7 @@
                             className="novel-content mt-6 break-words outline-none"
                             style={{
                                 fontSize: `${settings.fontSize}px`,
-                                lineHeight: settings.lineHeight,
+                                lineHeight: `${settings.lineHeight}px`, // 픽셀 단위 적용
                                 letterSpacing: `${settings.letterSpacing}px`,
                                 fontWeight: settings.fontWeight,
                             }}
@@ -658,7 +665,8 @@
                                 {[
                                     { label: '글자 굵기', key: 'fontWeight', min: 100, max: 900, step: 10 },
                                     { label: '글자 크기', key: 'fontSize', min: 12, max: 32, step: 0.5 },
-                                    { label: '줄 간격', key: 'lineHeight', min: 1.0, max: 3.0, step: 0.05 },
+                                    // [변경됨] 줄 간격: min 12, max 30, step 1 (픽셀 단위)
+                                    { label: '줄 간격 (px)', key: 'lineHeight', min: 12, max: 30, step: 1 },
                                     { label: '글자 간격', key: 'letterSpacing', min: -2, max: 10, step: 0.1 },
                                 ].map((item) => (
                                     <div key={item.key}><div className="flex justify-between mb-2"><label className="text-sm font-medium text-gray-700">{item.label}</label><span className="text-xs text-gray-500">{settings[item.key]}</span></div><input type="range" min={item.min} max={item.max} step={item.step} value={settings[item.key]} onChange={(e) => handleSettingChange(item.key, Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" /></div>
