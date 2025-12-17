@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>나만의 웹소설 스튜디오</title>
+    <title>로그 뷰어</title>
     
     <!-- 1. Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -276,49 +276,55 @@
                     // 폰트 임베딩 CSS 준비
                     const fontEmbedCSS = await prepareFontEmbedCSS(settings.fontFamily);
 
-                    // --- [너비 1080px 고정 로직 + 모바일 뻥튀기 방지] ---
-                    // 1. 현재 DOM의 실제 크기와 여백 계산
-                    // const rootFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize);
-                    const paddingTop = 17;
-                    const paddingBottom = 14;
+                    // --- [너비 10800px + 줄간격 버그 수정 로직] ---
+                    
+                    // 1. root 폰트 사이즈 기준으로 패딩값의 정확한 픽셀 계산
+                    const rootFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize);
+                    const paddingTop = 15;
+                    const paddingBottom = 12;
                     const paddingLeft = 22;
                     const paddingRight = 20;
                     
                     const originalWidth = node.offsetWidth;
                     const originalHeight = node.offsetHeight;
                     
-                    // 현재 레이아웃상의 전체 크기 (패딩 포함)
-                    const currentTotalWidth = originalWidth + (paddingLeft + paddingRight);
-                    const currentTotalHeight = originalHeight + (paddingTop + paddingBottom);
+                    // 2. Math.ceil로 정수형 픽셀 확보 (소수점 렌더링 오차 방지)
+                    // 소수점으로 인해 컨테이너가 아주 미세하게 작아지면 글자가 밀리거나 줄간격이 깨짐
+                    const currentTotalWidth = Math.ceil(originalWidth + (paddingLeft + paddingRight));
+                    const currentTotalHeight = Math.ceil(originalHeight + (paddingTop + paddingBottom));
 
-                    // 2. 목표 너비 설정 및 스케일 계산
-                    const TARGET_WIDTH = 1080; // 목표 너비 1080px
-                    const scale = TARGET_WIDTH / currentTotalWidth; // 현재 크기 대비 확대/축소 비율
+                    // 3. 목표 너비 설정 및 스케일 계산
+                    const TARGET_WIDTH = 1080; 
+                    const scale = TARGET_WIDTH / currentTotalWidth; 
 
                     const options = {
-                        width: TARGET_WIDTH, // 출력 이미지 너비 고정
-                        height: currentTotalHeight * scale, // 비율에 맞춰 높이 자동 계산
+                        width: TARGET_WIDTH, 
+                        // 높이도 정수화하여 스크롤바나 잘림 방지
+                        height: Math.ceil(currentTotalHeight * scale),
                         backgroundColor: settings.bgColor,
                         fontEmbedCSS: fontEmbedCSS,
                         
-                        // [중요] 모바일 기기의 DPR(Pixel Ratio) 무시하고 1로 고정
-                        // 이 설정이 없으면 고해상도 폰에서 1080px * 3 = 3240px 등으로 저장됨
                         pixelRatio: 1, 
 
                         style: {
-                            // 핵심: transform으로 scale 적용하여 레이아웃 유지하며 해상도 조절
                             transform: `scale(${scale})`, 
                             transformOrigin: 'top left',
                             
-                            // 원본 레이아웃 크기를 강제하여 줄바꿈(Reflow) 방지
                             width: `${currentTotalWidth}px`,
                             height: `${currentTotalHeight}px`,
                             
+                            // rem 대신 계산된 정확한 px 값을 사용하여 오차 제거
                             padding: `${paddingTop}px ${paddingRight}px ${paddingBottom}px ${paddingLeft}px`,
                             backgroundColor: settings.bgColor,
                             boxSizing: 'border-box',
                             margin: 0,
-                            fontFamily: settings.fontFamily, 
+                            fontFamily: settings.fontFamily,
+                            
+                            // [핵심 해결책] 텍스트 렌더링 정밀도 향상
+                            // 글자 간격 계산을 정밀하게 하도록 브라우저에 지시
+                            textRendering: 'geometricPrecision',
+                            WebkitFontSmoothing: 'antialiased',
+                            MozOsxFontSmoothing: 'grayscale',
                         },
                         cacheBust: true,
                     };
@@ -577,8 +583,8 @@
                         )}
                     </header>
 
-                    <main className={`${isEditing ? 'pt-36 sm:pt-32' : 'pt-20'} pb-24 px-5 max-w-3xl mx-auto w-full flex-grow`}>
-                        <div
+                    <main className={`${isEditing ? 'pt-36 sm:pt-32' : 'pt-20'} pb-24 px-4 max-w-3xl mx-auto w-full flex-grow`}>
+                        <div 
                             className="novel-content mt-6 break-words outline-none"
                             style={{
                                 fontSize: `${settings.fontSize}px`,
