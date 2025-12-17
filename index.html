@@ -32,7 +32,7 @@
         @import url('https://cdn.jsdelivr.net/npm/font-kopub@1.0/kopubbatang.min.css');
         @import url('https://cdn.jsdelivr.net/npm/font-kopub@1.0/kopubworldbatang.min.css');
 
-        /* 말줄임표용 특수 폰트 (안드로이드 호환용 웹폰트 URL 사용) */
+        /* 말줄임표용 특수 폰트 */
         @font-face {
             font-family: 'EllipsisFix';
             src: url('https://cdn.jsdelivr.net/npm/font-kopub@1.0/fonts/KoPubBatangMedium.woff2') format('woff2');
@@ -42,6 +42,9 @@
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 4px; }
+        
+        /* 가로 스크롤 방지 (중요: body 레벨에서 제어) */
+        body { overflow-x: hidden; }
 
         .novel-content p { margin-bottom: 0; }
         .novel-content hr { border: none; height: 1px; background-color: #A6A6A6; margin: 2em auto; width: 100px; display: block; }
@@ -85,7 +88,6 @@
 
         const fontCache = new Map();
 
-        // [핵심] 폰트 임베딩 함수
         async function prepareFontEmbedCSS(activeFontKey) {
             let mainFontKey = 'Pretendard Variable';
             if(activeFontKey.includes('Pretendard') && !activeFontKey.includes('Variable')) mainFontKey = 'Pretendard';
@@ -108,7 +110,6 @@
                 
                 while ((match = urlRegex.exec(cssText)) !== null) {
                     const fullUrl = match[1].replace(/['"]/g, ''); 
-                    // 상대 경로를 절대 경로로 변환 (Pretendard 대응)
                     const absoluteUrl = new URL(fullUrl, fontInfo.url).href;
                     replacements.push({ original: match[0], url: absoluteUrl });
                 }
@@ -182,7 +183,7 @@
                 bgColor: '#f2f3f6',
                 textColor: '#262626',
                 fontSize: 14,
-                lineHeight: 24, // 기본값 변경: 1.6 -> 24px
+                lineHeight: 24, 
                 letterSpacing: 0,
                 fontWeight: 400,
                 fontFamily: "'EllipsisFix', 'Pretendard Variable', sans-serif", 
@@ -195,12 +196,9 @@
                     const savedSettings = localStorage.getItem('novel-settings');
                     if (savedSettings) {
                         const parsed = JSON.parse(savedSettings);
-                        
-                        // 데이터 마이그레이션: 기존 사용자의 lineHeight가 배율(예: 1.6)로 저장되어 있다면 픽셀 단위 기본값으로 초기화
                         if (parsed.lineHeight && parsed.lineHeight < 10) {
                             parsed.lineHeight = 24;
                         }
-                        
                         return { ...defaultSettings, ...parsed };
                     }
                     return defaultSettings;
@@ -279,13 +277,8 @@
 
                 try {
                     await document.fonts.ready;
-
-                    // 폰트 임베딩 CSS 준비
                     const fontEmbedCSS = await prepareFontEmbedCSS(settings.fontFamily);
 
-                    // --- [너비 1080px + 줄간격 버그 수정 로직 개선] ---
-                    
-                    // 1. 패딩값
                     const paddingTop = 15;
                     const paddingBottom = 12;
                     const paddingLeft = 20;
@@ -294,50 +287,32 @@
                     const originalWidth = node.offsetWidth;
                     const originalHeight = node.offsetHeight;
                     
-                    // 2. 논리적 너비 (화면상 보이는 크기에 패딩만 더함)
-                    // Math.ceil을 사용하여 소수점 오차 방지
                     const currentTotalWidth = Math.ceil(originalWidth + (paddingLeft + paddingRight));
                     const currentTotalHeight = Math.ceil(originalHeight + (paddingTop + paddingBottom));
 
-                    // 3. 목표 너비 설정 및 픽셀 비율(스케일) 계산
-                    // CSS transform 대신 pixelRatio를 사용하여 고해상도로 렌더링합니다.
                     const TARGET_WIDTH = 1080; 
                     const scale = TARGET_WIDTH / currentTotalWidth; 
 
                     const options = {
-                        // 중요: width/height를 '논리적 크기'로 설정하여 레이아웃 변형 방지
                         width: currentTotalWidth,
                         height: currentTotalHeight,
-                        
-                        // 중요: pixelRatio를 scale값으로 설정하여 출력 해상도만 키움 (1080px 폭이 됨)
                         pixelRatio: scale, 
-
                         backgroundColor: settings.bgColor,
                         fontEmbedCSS: fontEmbedCSS,
-                        
                         style: {
-                            // 중요: transform: scale(...) 제거
-                            // transform 대신 pixelRatio가 스케일링을 담당합니다.
-                            
                             width: `${currentTotalWidth}px`,
                             height: `${currentTotalHeight}px`,
-                            
-                            // 패딩 적용
                             padding: `${paddingTop}px ${paddingRight}px ${paddingBottom}px ${paddingLeft}px`,
-                            
                             backgroundColor: settings.bgColor,
                             boxSizing: 'border-box',
                             margin: 0,
                             fontFamily: settings.fontFamily,
-                            
-                            // 텍스트 렌더링 품질 옵션
                             textRendering: 'geometricPrecision',
                             WebkitFontSmoothing: 'antialiased',
                             MozOsxFontSmoothing: 'grayscale',
                         },
                         cacheBust: true,
                     };
-                    // ------------------------------------
 
                     const dataUrl = await htmlToImageLib.toPng(node, options);
                     const res = await fetch(dataUrl);
@@ -360,9 +335,7 @@
                         link.click();
                         URL.revokeObjectURL(url);
                     }
-
                     document.body.style.cursor = 'default';
-
                 } catch (e) {
                     console.error(e);
                     alert('이미지 저장 중 오류가 발생했습니다.');
@@ -512,15 +485,7 @@
             ];
 
             return (
-                <div 
-                    className="min-h-screen transition-colors duration-300 ease-in-out relative overflow-hidden flex flex-col"
-                    style={{ 
-                        backgroundColor: settings.bgColor,
-                        color: settings.textColor,
-                        fontFamily: settings.fontFamily,
-                        fontWeight: settings.fontWeight,
-                    }}
-                >
+                <div style={{ fontFamily: settings.fontFamily, fontWeight: settings.fontWeight, color: settings.textColor }}>
                     {/* 동적 스타일 적용 */}
                     <style>{`
                         .novel-content p {
@@ -529,6 +494,7 @@
                         }
                     `}</style>
 
+                    {/* [수정됨] Header를 메인 컨테이너 밖으로 분리하여 스크롤 영향 제거 */}
                     <header 
                         className="fixed top-0 left-0 right-0 z-50 transition-all duration-300 bg-opacity-95 backdrop-blur-md border-b border-black/5" 
                         style={{ backgroundColor: settings.bgColor }}
@@ -592,34 +558,45 @@
                         )}
                     </header>
 
-                    <main className={`${isEditing ? 'pt-36 sm:pt-32' : 'pt-20'} pb-24 px-4 max-w-3xl mx-auto w-full flex-grow`}>
-                        <div 
-                            className="novel-content mt-6 break-words outline-none"
-                            style={{
-                                fontSize: `${settings.fontSize}px`,
-                                lineHeight: `${settings.lineHeight}px`, // 픽셀 단위 적용
-                                letterSpacing: `${settings.letterSpacing}px`,
-                                fontWeight: settings.fontWeight,
-                            }}
-                        >
-                            {isEditing ? (
-                                <div
-                                    ref={editorRef}
-                                    className="novel-editor"
-                                    contentEditable={true}
-                                    suppressContentEditableWarning={true}
-                                    onKeyDown={handleKeyDown}
-                                    onInput={updateContentState}
-                                    onBlur={handleEditorBlur}
-                                    spellCheck="false"
-                                    style={{ color: settings.textColor }}
-                                />
-                            ) : (
-                                <div dangerouslySetInnerHTML={{ __html: content }} style={{ pointerEvents: 'none' }} />
-                            )}
-                        </div>
-                    </main>
+                    {/* [수정됨] 메인 컨텐츠 영역
+                        - overflow-hidden을 제거하여 스크롤 컨테이너 동작을 브라우저 기본값(body)으로 돌림
+                        - Header와 분리되어 독립적으로 존재함
+                    */}
+                    <div 
+                        className="min-h-screen transition-colors duration-300 ease-in-out relative flex flex-col"
+                        style={{ backgroundColor: settings.bgColor }}
+                    >
+                        <main className={`${isEditing ? 'pt-36 sm:pt-32' : 'pt-20'} pb-24 px-4 max-w-3xl mx-auto w-full flex-grow`}>
+                            <div 
+                                className="novel-content mt-6 break-words outline-none"
+                                style={{
+                                    fontSize: `${settings.fontSize}px`,
+                                    lineHeight: `${settings.lineHeight}px`, 
+                                    letterSpacing: `${settings.letterSpacing}px`,
+                                    fontWeight: settings.fontWeight,
+                                }}
+                            >
+                                {isEditing ? (
+                                    <div
+                                        ref={editorRef}
+                                        className="novel-editor"
+                                        contentEditable={true}
+                                        suppressContentEditableWarning={true}
+                                        onKeyDown={handleKeyDown}
+                                        onInput={updateContentState}
+                                        onBlur={handleEditorBlur}
+                                        spellCheck="false"
+                                        style={{ color: settings.textColor }}
+                                    />
+                                ) : (
+                                    <div dangerouslySetInnerHTML={{ __html: content }} style={{ pointerEvents: 'none' }} />
+                                )}
+                            </div>
+                        </main>
+                    </div>
 
+                    {/* [수정됨] Modals & Fixed UI Elements - 메인 컨테이너 밖으로 이동 */}
+                    
                     {tableModal.show && (
                         <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
                             <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-xs font-sans text-gray-800">
@@ -665,7 +642,6 @@
                                 {[
                                     { label: '글자 굵기', key: 'fontWeight', min: 100, max: 900, step: 10 },
                                     { label: '글자 크기', key: 'fontSize', min: 12, max: 32, step: 0.5 },
-                                    // [변경됨] 줄 간격: min 12, max 30, step 1 (픽셀 단위)
                                     { label: '줄 간격 (px)', key: 'lineHeight', min: 12, max: 30, step: 1 },
                                     { label: '글자 간격', key: 'letterSpacing', min: -2, max: 10, step: 0.1 },
                                 ].map((item) => (
