@@ -276,9 +276,9 @@
                     // 폰트 임베딩 CSS 준비
                     const fontEmbedCSS = await prepareFontEmbedCSS(settings.fontFamily);
 
-                    // --- [너비 10800px + 줄간격 버그 수정 로직] ---
+                    // --- [너비 1080px + 줄간격 버그 수정 로직 개선] ---
                     
-                    // 1. 패딩값의 정확한 픽셀 지정
+                    // 1. 패딩값
                     const paddingTop = 16;
                     const paddingBottom = 12;
                     const paddingLeft = 22;
@@ -287,40 +287,44 @@
                     const originalWidth = node.offsetWidth;
                     const originalHeight = node.offsetHeight;
                     
-                    // 2. Math.ceil로 정수형 픽셀 확보 (소수점 렌더링 오차 방지)
-                    // 소수점으로 인해 컨테이너가 아주 미세하게 작아지면 글자가 밀리거나 줄간격이 깨짐
+                    // 2. 논리적 너비 (화면상 보이는 크기에 패딩만 더함)
+                    // Math.ceil을 사용하여 소수점 오차 방지
                     const currentTotalWidth = Math.ceil(originalWidth + (paddingLeft + paddingRight));
                     const currentTotalHeight = Math.ceil(originalHeight + (paddingTop + paddingBottom));
 
-                    // 3. 목표 너비 설정 및 스케일 계산
+                    // 3. 목표 너비 설정 및 픽셀 비율(스케일) 계산
+                    // CSS transform 대신 pixelRatio를 사용하여 고해상도로 렌더링합니다.
+                    // 이렇게 하면 텍스트의 줄간격(행간)이 뭉개지는 서브픽셀 렌더링 문제를 방지할 수 있습니다.
                     const TARGET_WIDTH = 1080; 
                     const scale = TARGET_WIDTH / currentTotalWidth; 
 
                     const options = {
-                        width: TARGET_WIDTH, 
-                        // 높이도 정수화하여 스크롤바나 잘림 방지
-                        height: Math.ceil(currentTotalHeight * scale),
+                        // 중요: width/height를 '논리적 크기'로 설정하여 레이아웃 변형 방지
+                        width: currentTotalWidth,
+                        height: currentTotalHeight,
+                        
+                        // 중요: pixelRatio를 scale값으로 설정하여 출력 해상도만 키움 (1080px 폭이 됨)
+                        pixelRatio: scale, 
+
                         backgroundColor: settings.bgColor,
                         fontEmbedCSS: fontEmbedCSS,
                         
-                        pixelRatio: 1, 
-
                         style: {
-                            transform: `scale(${scale})`, 
-                            transformOrigin: 'top left',
+                            // 중요: transform: scale(...) 제거
+                            // transform 대신 pixelRatio가 스케일링을 담당합니다.
                             
                             width: `${currentTotalWidth}px`,
                             height: `${currentTotalHeight}px`,
                             
-                            // rem 대신 계산된 정확한 px 값을 사용하여 오차 제거
+                            // 패딩 적용
                             padding: `${paddingTop}px ${paddingRight}px ${paddingBottom}px ${paddingLeft}px`,
+                            
                             backgroundColor: settings.bgColor,
                             boxSizing: 'border-box',
                             margin: 0,
                             fontFamily: settings.fontFamily,
                             
-                            // [핵심 해결책] 텍스트 렌더링 정밀도 향상
-                            // 글자 간격 계산을 정밀하게 하도록 브라우저에 지시
+                            // 텍스트 렌더링 품질 옵션
                             textRendering: 'geometricPrecision',
                             WebkitFontSmoothing: 'antialiased',
                             MozOsxFontSmoothing: 'grayscale',
