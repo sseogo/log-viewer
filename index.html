@@ -85,7 +85,6 @@
 
         const fontCache = new Map();
 
-        // [핵심] 폰트 임베딩 함수
         async function prepareFontEmbedCSS(activeFontKey) {
             let mainFontKey = 'Pretendard Variable';
             if(activeFontKey.includes('Pretendard') && !activeFontKey.includes('Variable')) mainFontKey = 'Pretendard';
@@ -108,7 +107,6 @@
                 
                 while ((match = urlRegex.exec(cssText)) !== null) {
                     const fullUrl = match[1].replace(/['"]/g, ''); 
-                    // 상대 경로를 절대 경로로 변환 (Pretendard 대응)
                     const absoluteUrl = new URL(fullUrl, fontInfo.url).href;
                     replacements.push({ original: match[0], url: absoluteUrl });
                 }
@@ -182,7 +180,8 @@
                 bgColor: '#f2f3f6',
                 textColor: '#262626',
                 fontSize: 14,
-                lineHeight: 1.6,
+                // [변경] 기본 줄 간격을 배수(1.6)에서 픽셀(24)로 변경
+                lineHeight: 24, 
                 letterSpacing: 0,
                 fontWeight: 400,
                 fontFamily: "'EllipsisFix', 'Pretendard Variable', sans-serif", 
@@ -194,7 +193,13 @@
                 try {
                     const savedSettings = localStorage.getItem('novel-settings');
                     if (savedSettings) {
-                        return { ...defaultSettings, ...JSON.parse(savedSettings) };
+                        const parsed = JSON.parse(savedSettings);
+                        // [중요] 기존 설정이 배수 단위(예: 1.6)인 경우 픽셀 단위로 안전하게 변환
+                        if (parsed.lineHeight && parsed.lineHeight < 10) {
+                            parsed.lineHeight = Math.round(parsed.lineHeight * 14) || 24; 
+                            if (parsed.lineHeight < 12) parsed.lineHeight = 12;
+                        }
+                        return { ...defaultSettings, ...parsed };
                     }
                     return defaultSettings;
                 } catch (e) {
@@ -257,7 +262,6 @@
                 setShowClearModal(false);
             };
 
-            // [수정됨] 이미지 저장 로직: 슈퍼샘플링 + 리사이징 전략 적용
             const handleSaveImage = async () => {
                 const htmlToImageLib = window.htmlToImage;
                 
@@ -274,10 +278,8 @@
                 try {
                     await document.fonts.ready;
 
-                    // 폰트 임베딩 CSS 준비
                     const fontEmbedCSS = await prepareFontEmbedCSS(settings.fontFamily);
 
-                    // 1. 여백 및 원본 크기 설정
                     const paddingTop = 16;
                     const paddingBottom = 12;
                     const paddingLeft = 22;
@@ -286,13 +288,10 @@
                     const originalWidth = node.offsetWidth;
                     const originalHeight = node.offsetHeight;
                     
-                    // 2. 논리적 너비/높이 계산 (패딩 포함)
                     const currentTotalWidth = Math.ceil(originalWidth + (paddingLeft + paddingRight));
                     const currentTotalHeight = Math.ceil(originalHeight + (paddingTop + paddingBottom));
 
-                    // [핵심 해결책] 슈퍼샘플링 (Super-sampling)
-                    // 소수점 배율(예: 1.34배) 대신 정수 배율(3배)로 고해상도 렌더링을 먼저 수행합니다.
-                    // 이렇게 하면 픽셀 스내핑(Pixel Snapping) 오차로 인한 줄간격 불일치 문제가 사라집니다.
+                    // 슈퍼샘플링 유지 (화질 개선용)
                     const SUPER_SAMPLE_RATIO = 3; 
 
                     const options = {
@@ -302,7 +301,6 @@
                         backgroundColor: settings.bgColor,
                         fontEmbedCSS: fontEmbedCSS,
                         style: {
-                            // transform 제거, 논리적 크기 그대로 렌더링
                             width: `${currentTotalWidth}px`,
                             height: `${currentTotalHeight}px`,
                             padding: `${paddingTop}px ${paddingRight}px ${paddingBottom}px ${paddingLeft}px`,
@@ -310,7 +308,10 @@
                             boxSizing: 'border-box',
                             margin: 0,
                             fontFamily: settings.fontFamily,
-                            // 텍스트 렌더링 최적화
+                            
+                            // [핵심] 저장 시에도 픽셀 단위 줄 간격 강제 적용
+                            lineHeight: `${settings.lineHeight}px`,
+
                             textRendering: 'geometricPrecision',
                             WebkitFontSmoothing: 'antialiased',
                             MozOsxFontSmoothing: 'grayscale',
@@ -318,15 +319,12 @@
                         cacheBust: true,
                     };
 
-                    // 1단계: 고해상도(3배) 이미지 생성
                     const highResDataUrl = await htmlToImageLib.toPng(node, options);
 
-                    // 2단계: 1080px로 리사이징 (캔버스 활용)
                     const resizeToTarget = (srcUrl, targetWidth) => {
                         return new Promise((resolve, reject) => {
                             const img = new Image();
                             img.onload = () => {
-                                // 비율 유지하며 높이 계산
                                 const aspect = img.height / img.width;
                                 const targetHeight = Math.floor(targetWidth * aspect);
                                 
@@ -335,7 +333,6 @@
                                 canvas.height = targetHeight;
                                 const ctx = canvas.getContext('2d');
                                 
-                                // 리사이징 품질 향상 (부드럽게 축소)
                                 ctx.imageSmoothingEnabled = true;
                                 ctx.imageSmoothingQuality = 'high';
                                 
@@ -350,7 +347,6 @@
 
                     const finalBlob = await resizeToTarget(highResDataUrl, 1080);
 
-                    // 3단계: 다운로드 / 공유
                     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
                     if (isIOS && navigator.share) {
@@ -605,7 +601,8 @@
                             className="novel-content mt-6 break-words outline-none"
                             style={{
                                 fontSize: `${settings.fontSize}px`,
-                                lineHeight: settings.lineHeight,
+                                // [변경] 줄 간격을 픽셀 단위로 적용
+                                lineHeight: `${settings.lineHeight}px`, 
                                 letterSpacing: `${settings.letterSpacing}px`,
                                 fontWeight: settings.fontWeight,
                             }}
@@ -673,11 +670,43 @@
                                 {[
                                     { label: '글자 굵기', key: 'fontWeight', min: 100, max: 900, step: 10 },
                                     { label: '글자 크기', key: 'fontSize', min: 12, max: 32, step: 0.5 },
-                                    { label: '줄 간격', key: 'lineHeight', min: 1.0, max: 3.0, step: 0.05 },
-                                    { label: '글자 간격', key: 'letterSpacing', min: -2, max: 10, step: 0.1 },
                                 ].map((item) => (
                                     <div key={item.key}><div className="flex justify-between mb-2"><label className="text-sm font-medium text-gray-700">{item.label}</label><span className="text-xs text-gray-500">{settings[item.key]}</span></div><input type="range" min={item.min} max={item.max} step={item.step} value={settings[item.key]} onChange={(e) => handleSettingChange(item.key, Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" /></div>
                                 ))}
+
+                                {/* [변경] 줄 간격(Line Height) 설정 슬라이더 수정 */}
+                                <div>
+                                    <div className="flex justify-between mb-2">
+                                        <label className="text-sm font-medium text-gray-700">줄 간격 (px)</label>
+                                        <span className="text-xs text-gray-500">{settings.lineHeight}px</span>
+                                    </div>
+                                    <input 
+                                        type="range" 
+                                        min="12" 
+                                        max="30" 
+                                        step="1" 
+                                        value={settings.lineHeight} 
+                                        onChange={(e) => handleSettingChange('lineHeight', Number(e.target.value))} 
+                                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" 
+                                    />
+                                </div>
+                                
+                                <div>
+                                    <div className="flex justify-between mb-2">
+                                        <label className="text-sm font-medium text-gray-700">글자 간격</label>
+                                        <span className="text-xs text-gray-500">{settings.letterSpacing}</span>
+                                    </div>
+                                    <input 
+                                        type="range" 
+                                        min="-2" 
+                                        max="10" 
+                                        step="0.1" 
+                                        value={settings.letterSpacing} 
+                                        onChange={(e) => handleSettingChange('letterSpacing', Number(e.target.value))} 
+                                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" 
+                                    />
+                                </div>
+
                                 <hr className="border-gray-200" />
                                 <div className="grid grid-cols-2 gap-4">
                                     <div><label className="block text-sm font-medium text-gray-700 mb-2">배경 색상</label><div className="flex items-center gap-2"><input type="color" value={settings.bgColor} onChange={(e) => handleSettingChange('bgColor', e.target.value)} className="w-8 h-8 rounded border overflow-hidden cursor-pointer p-0" /><input type="text" value={settings.bgColor} onChange={(e) => handleSettingChange('bgColor', e.target.value)} className="w-20 text-xs p-1 border border-gray-300 rounded outline-none uppercase font-mono" maxLength={7} /></div></div>
