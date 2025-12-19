@@ -279,10 +279,10 @@
                     await document.fonts.ready;
                     const fontEmbedCSS = await prepareFontEmbedCSS(settings.fontFamily);
 
-                    const paddingTop = 0;
-                    const paddingBottom = 0;
-                    const paddingLeft = 0;
-                    const paddingRight = 0;
+                    const paddingTop = 10;
+                    const paddingBottom = 8;
+                    const paddingLeft = 17;
+                    const paddingRight = 16;
                     
                     const originalWidth = node.offsetWidth;
                     const originalHeight = node.offsetHeight;
@@ -566,9 +566,9 @@
                         className="min-h-screen transition-colors duration-300 ease-in-out relative flex flex-col"
                         style={{ backgroundColor: settings.bgColor }}
                     >
-                        <main className={`${isEditing ? 'pt-36 sm:pt-32' : 'pt-20'} pb-24 max-w-3xl mx-auto w-full flex-grow`}>
+                        <main className={`${isEditing ? 'pt-36 sm:pt-32' : 'pt-20'} pb-24 px-4 max-w-3xl mx-auto w-full flex-grow`}>
                             <div 
-                                className="novel-content mt-4 px-4 break-words outline-none"
+                                className="novel-content mt-4 break-words outline-none"
                                 style={{
                                     fontSize: `${settings.fontSize}px`,
                                     lineHeight: `${settings.lineHeight}px`, 
