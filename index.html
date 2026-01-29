@@ -151,6 +151,7 @@
             const [isEditing, setIsEditing] = useState(true);
             const [showSettings, setShowSettings] = useState(false);
             const [resetConfirm, setResetConfirm] = useState(false);
+            const [fontSizeInput, setFontSizeInput] = useState(''); // [추가] 폰트 크기 입력값 상태
             
             const [tableModal, setTableModal] = useState({ 
                 show: false, 
@@ -360,6 +361,41 @@
                 updateContentState();
             };
 
+            const applyCustomFontSize = (size) => {
+                const pxSize = parseInt(size);
+                if (!pxSize || isNaN(pxSize)) return;
+
+                const scrollX = window.scrollX;
+                const scrollY = window.scrollY;
+
+                if (savedRange.current) {
+                    const selection = window.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(savedRange.current);
+                }
+
+                // 1. 임시 Marker Font 적용 (유니크한 이름)
+                const marker = 'font-marker-' + Date.now();
+                document.execCommand('styleWithCSS', false, true);
+                document.execCommand('fontName', false, marker);
+
+                // 2. Marker Font가 적용된 요소를 찾아 폰트 사이즈 변경 후, Marker Font 제거
+                const spans = editorRef.current.querySelectorAll(`span[style*="font-family"]`);
+                let modified = false;
+
+                spans.forEach(span => {
+                    const currentFont = span.style.fontFamily.replace(/['"]/g, '');
+                    if (currentFont.includes(marker)) {
+                        span.style.fontSize = `${pxSize}px`;
+                        span.style.fontFamily = ''; // Marker 제거 (상속 또는 기본 폰트로 복귀)
+                        modified = true;
+                    }
+                });
+
+                window.scrollTo(scrollX, scrollY);
+                if (modified) updateContentState();
+            };
+
             const insertDivider = () => { applyCommand('insertHorizontalRule'); };
             const insertQuote = () => { applyCommand('formatBlock', 'blockquote'); };
             const insertEllipsis = () => { applyCommand('insertText', '…'); };
@@ -527,23 +563,35 @@
                                         </select>
                                     </div>
 
-                                    {/* [추가됨] 부분 폰트 크기 조절 */}
+                                    {/* [수정됨] 부분 폰트 크기 조절 (직접 입력 방식 + 적용 버튼) */}
                                     <div className="flex items-center bg-white/50 rounded-lg p-1 border border-black/5 mr-2">
                                         <span className="text-gray-500 ml-2 mr-1 text-xs font-bold font-serif">Aa</span>
-                                        <select
-                                            onChange={(e) => { applyCommand('fontSize', e.target.value); e.target.value = ""; }}
-                                            className="bg-transparent text-xs p-1 outline-none w-24 cursor-pointer"
-                                            defaultValue=""
+                                        <input 
+                                            type="number"
+                                            min="1"
+                                            max="100"
+                                            value={fontSizeInput}
+                                            onChange={(e) => setFontSizeInput(e.target.value)}
+                                            className="bg-transparent text-xs p-1 outline-none w-10 text-right font-mono" 
+                                            placeholder="px"
+                                            onKeyDown={(e) => {
+                                                if(e.key === 'Enter') {
+                                                    applyCustomFontSize(fontSizeInput);
+                                                    e.currentTarget.blur();
+                                                }
+                                            }}
+                                        />
+                                        <span className="text-[10px] text-gray-400 mr-1">px</span>
+                                        <button 
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                applyCustomFontSize(fontSizeInput);
+                                            }}
+                                            className="ml-1 p-1 bg-gray-100 hover:bg-green-100 text-green-600 rounded transition-colors flex items-center justify-center"
+                                            title="크기 적용"
                                         >
-                                            <option value="" disabled>크기</option>
-                                            <option value="1">가장 작게</option>
-                                            <option value="2">작게</option>
-                                            <option value="3">보통</option>
-                                            <option value="4">크게</option>
-                                            <option value="5">더 크게</option>
-                                            <option value="6">아주 크게</option>
-                                            <option value="7">최대</option>
-                                        </select>
+                                            <Check size={14} strokeWidth={3} />
+                                        </button>
                                     </div>
 
                                     <div className="flex items-center bg-white/50 rounded-lg p-1 border border-black/5">
