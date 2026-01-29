@@ -362,7 +362,7 @@
             };
 
             const applyCustomFontSize = (size) => {
-                const pxSize = parseInt(size);
+                const pxSize = parseFloat(size);
                 if (!pxSize || isNaN(pxSize)) return;
 
                 const scrollX = window.scrollX;
