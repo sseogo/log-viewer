@@ -281,7 +281,7 @@
                     const fontEmbedCSS = await prepareFontEmbedCSS(settings.fontFamily);
 
                     const paddingTop = 12;
-                    const paddingBottom = 9;
+                    const paddingBottom = 8.5;
                     const paddingLeft = 17;
                     const paddingRight = 17;
                     
@@ -572,7 +572,7 @@
                                             max="100"
                                             value={fontSizeInput}
                                             onChange={(e) => setFontSizeInput(e.target.value)}
-                                            className="bg-transparent text-xs p-1 outline-none w-10 text-right font-mono" 
+                                            className="bg-transparent text-xs p-1 outline-none w-12 text-right font-mono" 
                                             placeholder="px"
                                             onKeyDown={(e) => {
                                                 if(e.key === 'Enter') {
