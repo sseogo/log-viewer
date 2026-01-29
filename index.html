@@ -514,6 +514,7 @@
                                         <button onClick={() => applyCommand('redo')} className="p-1.5 hover:bg-black/10 rounded" title="다시 실행"><Redo size={18} /></button>
                                     </div>
 
+                                    {/* 폰트 선택 */}
                                     <div className="flex items-center bg-white/50 rounded-lg p-1 border border-black/5 mr-2">
                                         <Type size={16} className="text-gray-500 ml-2 mr-1" />
                                         <select
@@ -523,6 +524,25 @@
                                         >
                                             <option value="" disabled>폰트 변경</option>
                                             {fontOptions.map((opt) => (<option key={opt.value} value={opt.value}>{opt.name}</option>))}
+                                        </select>
+                                    </div>
+
+                                    {/* [추가됨] 부분 폰트 크기 조절 */}
+                                    <div className="flex items-center bg-white/50 rounded-lg p-1 border border-black/5 mr-2">
+                                        <span className="text-gray-500 ml-2 mr-1 text-xs font-bold font-serif">Aa</span>
+                                        <select
+                                            onChange={(e) => { applyCommand('fontSize', e.target.value); e.target.value = ""; }}
+                                            className="bg-transparent text-xs p-1 outline-none w-24 cursor-pointer"
+                                            defaultValue=""
+                                        >
+                                            <option value="" disabled>크기</option>
+                                            <option value="1">가장 작게</option>
+                                            <option value="2">작게</option>
+                                            <option value="3">보통</option>
+                                            <option value="4">크게</option>
+                                            <option value="5">더 크게</option>
+                                            <option value="6">아주 크게</option>
+                                            <option value="7">최대</option>
                                         </select>
                                     </div>
 
